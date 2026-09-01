@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="China Fund">
+<meta name="theme-color" content="#1D6F5C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>China Fund Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F4F6F8; --card:#FFFFFF; --sunk:#EAEEF2; --line:#D8DFE6; --line-soft:#E6EBF0;
+  --ink:#14202A; --ink-2:#42525F; --ink-3:#74838F;
+  --jade:#1D6F5C; --jade-ink:#155245; --jade-wash:#E4F0EC;
+  --amber:#9A6910; --amber-wash:#FAF0DC;
+  --crimson:#A6362B; --crimson-wash:#FAE7E4;
+  --shadow:0 1px 2px rgba(20,32,42,.05),0 4px 14px rgba(20,32,42,.05);
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0E1620; --card:#16212C; --sunk:#1D2A36; --line:#2B3A48; --line-soft:#22303C;
+  --ink:#E9EFF4; --ink-2:#A9B8C4; --ink-3:#7C8C99;
+  --jade:#5FBFA3; --jade-ink:#8FD8C1; --jade-wash:#123028;
+  --amber:#D8A24A; --amber-wash:#332614;
+  --crimson:#E28074; --crimson-wash:#331C19;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.28);
+}}
+:root[data-theme="dark"]{
+  --ground:#0E1620; --card:#16212C; --sunk:#1D2A36; --line:#2B3A48; --line-soft:#22303C;
+  --ink:#E9EFF4; --ink-2:#A9B8C4; --ink-3:#7C8C99;
+  --jade:#5FBFA3; --jade-ink:#8FD8C1; --jade-wash:#123028;
+  --amber:#D8A24A; --amber-wash:#332614;
+  --crimson:#E28074; --crimson-wash:#331C19;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.num{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:940px;margin:0 auto;padding:max(22px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(72px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Public Sans",sans-serif;margin:0;text-wrap:balance;letter-spacing:-.02em}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r);box-shadow:var(--shadow)}
+.pad{padding:18px}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+header h1{font-size:26px;font-weight:800}
+header .sub{font-size:13px;color:var(--ink-2);margin-top:2px}
+.countdown{text-align:right}
+.countdown .n{font-size:30px;font-weight:700;line-height:1;color:var(--jade)}
+
+/* hero */
+.hero{padding:20px 18px}
+.heroTop{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.banked{font-size:42px;font-weight:800;line-height:1;letter-spacing:-.03em;
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.goalTxt{font-size:13px;color:var(--ink-2)}
+.track{position:relative;height:13px;background:var(--sunk);border-radius:99px;margin:16px 0 8px;overflow:hidden}
+.fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--jade-ink),var(--jade));
+  transition:width .5s cubic-bezier(.4,0,.2,1)}
+.pace{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink-3);opacity:.65}
+.trackLabels{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-3)}
+.status{margin-top:14px;display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+  padding:6px 11px;border-radius:99px}
+.ok{background:var(--jade-wash);color:var(--jade-ink)}
+.warn{background:var(--amber-wash);color:var(--amber)}
+.bad{background:var(--crimson-wash);color:var(--crimson)}
+.dot{width:7px;height:7px;border-radius:99px;background:currentColor}
+
+/* stats strip */
+.strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-soft);
+  border-top:1px solid var(--line-soft);margin-top:18px}
+.strip div{background:var(--card);padding:13px 14px}
+.strip .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.strip .v{font-size:17px;font-weight:600;margin-top:3px;font-family:"IBM Plex Mono",monospace;
+  font-variant-numeric:tabular-nums}
+
+/* week nav */
+.weeknav{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.weeknav .t{font-weight:700;font-family:"Bricolage Grotesque",sans-serif;font-size:15px}
+.weeknav .d{font-size:12px;color:var(--ink-3)}
+.nav{display:flex;gap:6px}
+button{font-family:inherit;font-size:14px;cursor:pointer;border-radius:8px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);padding:6px 11px;transition:background .15s,border-color .15s}
+button:hover:not(:disabled){background:var(--sunk)}
+button:disabled{opacity:.35;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--jade);outline-offset:2px}
+
+/* meters */
+.meters{display:flex;flex-direction:column}
+.meter{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 16px;
+  border-bottom:1px solid var(--line-soft)}
+.meter:last-child{border-bottom:none}
+.mName{font-weight:600;font-size:14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tag{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 6px;border-radius:4px;background:var(--jade-wash);color:var(--jade-ink)}
+.tag.lock{background:var(--sunk);color:var(--ink-3)}
+.mVal{font-size:13px;text-align:right;white-space:nowrap;font-family:"IBM Plex Mono",monospace;
+  font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.mVal b{color:var(--ink);font-weight:600}
+.mBar{grid-column:1/-1;height:6px;background:var(--sunk);border-radius:99px;overflow:hidden;margin-top:2px}
+.mBar span{display:block;height:100%;border-radius:99px;transition:width .35s ease}
+.mNote{grid-column:1/-1;font-size:11.5px;color:var(--ink-3)}
+
+/* form */
+form{display:grid;grid-template-columns:1.4fr .8fr 1.6fr auto;gap:10px;padding:16px;align-items:end}
+label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+input,select{font-family:inherit;font-size:14px;padding:9px 10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);width:100%}
+input[type=number]{font-family:"IBM Plex Mono",monospace}
+.add{background:var(--jade);border-color:var(--jade);color:#fff;font-weight:600;padding:9px 18px}
+.add:hover:not(:disabled){background:var(--jade-ink);border-color:var(--jade-ink)}
+
+/* entries */
+.ent{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line-soft);font-size:14px}
+.ent:last-child{border-bottom:none}
+.ent .c{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ent .c small{color:var(--ink-3);font-weight:400}
+.ent .dt{font-size:12px;color:var(--ink-3);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+.ent .amt{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.del{border:none;background:none;color:var(--ink-3);padding:3px 6px;font-size:16px;line-height:1;border-radius:6px}
+.del:hover{color:var(--crimson);background:var(--crimson-wash)}
+.empty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13.5px}
+
+/* history */
+.tblWrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px}
+th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:600;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:9px 14px;border-bottom:1px solid var(--line-soft)}
+tr:last-child td{border-bottom:none}
+td.n{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+tr.now td{background:var(--jade-wash)}
+.pos{color:var(--jade-ink);font-weight:600}
+.neg{color:var(--crimson);font-weight:600}
+.banner{padding:11px 16px;font-size:13px;border-radius:var(--r);
+  background:var(--amber-wash);color:var(--amber);border:1px solid var(--line-soft)}
+footer{font-size:12px;color:var(--ink-3);line-height:1.65}
+@media (max-width:720px){
+  .strip{grid-template-columns:repeat(2,1fr)}
+  form{grid-template-columns:1fr 1fr;gap:9px}
+  form label:nth-child(3){grid-column:1/-1}
+  .add{grid-column:1/-1}
+  .banked{font-size:36px}
+  header h1{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>China Fund</h1>
+      <div class="sub">7 Sep – 15 Dec 2026 · $115.04/wk cap · goal $5,920</div>
+    </div>
+    <div class="countdown"><div class="eyebrow">Weeks left</div><div class="n num" id="wksLeft">—</div></div>
+  </header>
+
+  <div id="storeMsg"></div>
+
+  <section class="card">
+    <div class="hero">
+      <div class="heroTop">
+        <div>
+          <div class="eyebrow">Banked so far</div>
+          <div class="banked" id="banked">$0</div>
+        </div>
+        <div class="goalTxt">of <b class="num">$5,920</b> by 15 Dec</div>
+      </div>
+      <div class="track"><div class="fill" id="fill" style="width:0%"></div><div class="pace" id="pace" style="left:0%"></div></div>
+      <div class="trackLabels"><span>$0</span><span id="paceLbl">on-pace marker</span><span>$5,920</span></div>
+      <div><span class="status ok" id="status"><span class="dot"></span><span id="statusTxt">Getting started</span></span></div>
+    </div>
+    <div class="strip">
+      <div><div class="k">Net income /wk</div><div class="v">$509.72</div></div>
+      <div><div class="k">Spent this week</div><div class="v" id="sWeek">$0.00</div></div>
+      <div><div class="k">Left this week</div><div class="v" id="sLeft">$115.04</div></div>
+      <div><div class="k">Projected total</div><div class="v" id="sProj">$5,920</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="weeknav">
+      <div><div class="t" id="wkTitle">Week 1</div><div class="d" id="wkDates">—</div></div>
+      <div class="nav">
+        <button id="prev" aria-label="Previous week">←</button>
+        <button id="today">This week</button>
+        <button id="next" aria-label="Next week">→</button>
+      </div>
+    </div>
+    <div class="meters" id="meters"></div>
+  </section>
+
+  <section class="card">
+    <div class="weeknav"><div class="t">Log a spend</div><div class="d">Adds to the week it falls in</div></div>
+    <form id="f">
+      <label>Category<select id="cat"></select></label>
+      <label>Amount<input id="amt" type="number" step="0.01" min="0" placeholder="0.00" required></label>
+      <label>Date<input id="date" type="date" required></label>
+      <button class="add" type="submit">Add</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="weeknav"><div class="t">This week's entries</div><div class="d" id="entCount">—</div></div>
+    <div id="entries"></div>
+  </section>
+
+  <section class="card">
+    <div class="weeknav"><div class="t">Week by week</div><div class="d">Saved = $509.72 − spent</div></div>
+    <div class="tblWrap"><table>
+      <thead><tr><th>Wk</th><th>Starting</th><th class="n" style="text-align:right">Spent</th>
+        <th class="n" style="text-align:right">Cap</th><th class="n" style="text-align:right">Under/Over</th>
+        <th class="n" style="text-align:right">Saved</th><th class="n" style="text-align:right">Cumulative</th></tr></thead>
+      <tbody id="hist"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <div class="weeknav">
+      <div><div class="t">Your data</div><div class="d">Saved in this browser — back it up now and then</div></div>
+      <div class="nav">
+        <button id="exp">Export CSV</button>
+        <label style="margin:0"><span style="position:absolute;left:-9999px">Import CSV</span>
+          <input id="imp" type="file" accept=".csv" style="width:150px;font-size:12px;padding:4px"></label>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Assumes StudyLink $333.48 + job $326.24 − $150 to Dad = $509.72/wk, and that no rent, phone or power
+    lands in this account. If a shift falls through or a fixed cost appears, the projection moves.
+  </footer>
+</div>
+
+<script>
+const CATS=[
+ {id:"commute",   name:"Commute",          cap:18.66, tag:"Protected", note:"2 rides × ~3.5 shifts — this earns your $326"},
+ {id:"flex",      name:"Transport flex",   cap:6.34,  note:"Non-commute Flamingo hops + Uber"},
+ {id:"groceries", name:"Groceries",        cap:45.00, note:"One main shop beats six convenience runs"},
+ {id:"eating",    name:"Eating out",       cap:24.00, note:"About two meals"},
+ {id:"health",    name:"Health/personal",  cap:5.00,  note:"Pharmacy, incidentals"},
+ {id:"uni",       name:"University",       cap:0.50,  note:"Campus incidentals"},
+ {id:"subs",      name:"Subscriptions",    cap:15.54, tag:"Locked", note:"$67.32/mo — Anthropic, Quizlet, Obsidian"},
+ {id:"fines",     name:"Fines",            cap:0.00,  note:"Flamingo photo penalties — target zero"}];
+const CAP=CATS.reduce((a,c)=>a+c.cap,0), INC=509.72, WEEKS=15, GOAL=+( (INC-CAP)*WEEKS ).toFixed(2);
+const START=new Date(2026,8,7);
+const money=n=>(n<0?"-$":"$")+Math.abs(n).toLocaleString("en-NZ",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=n=>"$"+Math.round(n).toLocaleString("en-NZ");
+const dstr=d=>d.toLocaleDateString("en-NZ",{day:"numeric",month:"short"});
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const wkStart=i=>{const d=new Date(START);d.setDate(d.getDate()+i*7);return d;};
+function wkIndex(s){const d=new Date(s+"T00:00:00");
+  return Math.floor((d-START)/(7*864e5));}
+function curWeek(){const i=wkIndex(iso(new Date()));return Math.max(0,Math.min(WEEKS-1,i));}
+
+let entries=[], view=curWeek(), col=null;
+
+/* ---------- storage: db when granted, localStorage otherwise ---------- */
+const LS="chinafund.entries";
+const lsRead=()=>{try{return JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){return[]}};
+const lsWrite=()=>{try{localStorage.setItem(LS,JSON.stringify(entries))}catch(e){}};
+function msg(t,cls){const b=document.getElementById("storeMsg");
+  b.innerHTML=t?`<div class="banner">${t}</div>`:"";}
+
+function initStore(){ entries=lsRead(); render(); }
+function addEntry(e){ entries=[...entries,{id:"l"+Date.now()+Math.random().toString(36).slice(2,6),...e}]; lsWrite(); render(); }
+function delEntry(id){ entries=entries.filter(x=>x.id!==id); lsWrite(); render(); }
+function exportCSV(){
+  const rows=[["Date","Category","Amount"]].concat(entries.slice().sort((a,b)=>a.date.localeCompare(b.date))
+    .map(e=>[e.date,(CATS.find(c=>c.id===e.cat)||{name:e.cat}).name,e.amt.toFixed(2)]));
+  const csv=rows.map(r=>r.join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="china-fund-"+iso(new Date())+".csv"; a.click(); URL.revokeObjectURL(a.href);
+}
+function importCSV(file){
+  const r=new FileReader();
+  r.onload=()=>{const lines=String(r.result).trim().split(/\r?\n/).slice(1);let n=0;
+    lines.forEach(l=>{const p=l.split(",");if(p.length<3)return;
+      const c=CATS.find(x=>x.name===p[1].trim())||CATS.find(x=>x.id===p[1].trim());
+      const amt=parseFloat(p[2]); if(!c||!(amt>0))return;
+      entries.push({id:"l"+Date.now()+Math.random().toString(36).slice(2,6),date:p[0].trim(),cat:c.id,amt});n++;});
+    lsWrite(); render(); msg(n?"":"Nothing imported — check the file has Date, Category, Amount columns.");};
+  r.readAsText(file);
+}
+/* ---------- derived ---------- */
+const weekEntries=i=>entries.filter(e=>wkIndex(e.date)===i);
+const weekSpend=i=>weekEntries(i).reduce((a,e)=>a+e.amt,0);
+function weeksElapsed(){return Math.max(1,Math.min(WEEKS,curWeek()+1));}
+/* fraction of week i that has actually happened (0 before it starts, 1 once past) */
+function wkFrac(i){const s=wkStart(i),n=new Date();n.setHours(0,0,0,0);
+  return Math.max(0,Math.min(1,(Math.floor((n-s)/864e5)+1)/7));}
+function elapsedWeeks(){let f=0;for(let i=0;i<WEEKS;i++)f+=wkFrac(i);return f;}
+/* income accrues day by day; spending counts the moment it happens */
+function banked(){let t=0;for(let i=0;i<WEEKS;i++){const f=wkFrac(i),sp=weekSpend(i);
+  if(f<=0&&sp===0)continue; t+=INC*f-sp;}return t;}
+const started=()=>elapsedWeeks()>0;
+
+/* ---------- render ---------- */
+function render(){
+  const wl=Math.max(0,WEEKS-curWeek()-1);
+  document.getElementById("wksLeft").textContent=wl;
+
+  const b=banked(), pct=Math.max(0,Math.min(100,b/GOAL*100));
+  document.getElementById("banked").textContent=money0(started()?b:0);
+  document.getElementById("fill").style.width=pct+"%";
+  const el=elapsedWeeks(), paceTarget=(INC-CAP)*el, pacePct=Math.min(100,paceTarget/GOAL*100);
+  document.getElementById("pace").style.left=pacePct+"%";
+  document.getElementById("paceLbl").textContent="on pace: "+money0(paceTarget);
+
+  const diff=b-paceTarget, st=document.getElementById("status"), tx=document.getElementById("statusTxt");
+  st.className="status "+(diff>=0?"ok":diff>-150?"warn":"bad");
+  if(!started()){ st.className="status ok";
+    tx.textContent="Starts "+wkStart(0).toLocaleDateString("en-NZ",{weekday:"short",day:"numeric",month:"short"})
+      +(entries.length?" · "+money(entries.reduce((a,e)=>a+e.amt,0))+" logged early":""); }
+  else tx.textContent = entries.length===0 ? "No entries yet — log a spend to start tracking"
+    : diff>=0 ? money0(diff)+" ahead of pace" : money0(-diff)+" behind pace";
+
+  const ws=weekSpend(view);
+  document.getElementById("sWeek").textContent=money(ws);
+  document.getElementById("sLeft").textContent=money(CAP-ws);
+  document.getElementById("sLeft").style.color=CAP-ws<0?"var(--crimson)":"";
+  const avg=el>0.15?[...Array(WEEKS).keys()].reduce((a,i)=>a+weekSpend(i),0)/el:CAP;
+  document.getElementById("sProj").textContent=money0(b+(INC-(entries.length?avg:CAP))*Math.max(0,WEEKS-el));
+
+  const s=wkStart(view), e=new Date(s); e.setDate(e.getDate()+6);
+  document.getElementById("wkTitle").textContent="Week "+(view+1)+(view===curWeek()?" · now":"");
+  document.getElementById("wkDates").textContent=dstr(s)+" – "+dstr(e);
+  document.getElementById("prev").disabled=view<=0;
+  document.getElementById("next").disabled=view>=WEEKS-1;
+
+  document.getElementById("meters").innerHTML=CATS.map(c=>{
+    const sp=weekEntries(view).filter(x=>x.cat===c.id).reduce((a,x)=>a+x.amt,0);
+    const over=c.cap>0?sp/c.cap:(sp>0?2:0), p=Math.min(100,over*100);
+    const col=over>1?"var(--crimson)":over>.8?"var(--amber)":"var(--jade)";
+    const rem=c.cap-sp;
+    return `<div class="meter">
+      <div class="mName">${c.name}${c.tag?`<span class="tag${c.tag==="Locked"?" lock":""}">${c.tag}</span>`:""}</div>
+      <div class="mVal"><b>${money(sp)}</b> / ${money(c.cap)}</div>
+      <div class="mBar"><span style="width:${p}%;background:${col}"></span></div>
+      <div class="mNote">${rem>=0?money(rem)+" left":"<b style='color:var(--crimson)'>"+money(-rem)+" over</b>"} · ${c.note}</div>
+    </div>`;}).join("");
+
+  const we=weekEntries(view).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById("entCount").textContent=we.length?we.length+" logged · "+money(ws):"nothing logged";
+  document.getElementById("entries").innerHTML = we.length ? we.map(x=>{
+    const c=CATS.find(k=>k.id===x.cat);
+    return `<div class="ent"><span class="dt">${dstr(new Date(x.date+"T00:00:00"))}</span>
+      <span class="c">${c?c.name:x.cat}</span>
+      <span class="amt">${money(x.amt)}</span>
+      <button class="del" data-id="${x.id}" aria-label="Delete entry">×</button></div>`;}).join("")
+    : `<div class="empty">Nothing logged this week yet.</div>`;
+
+  let cum=0;
+  document.getElementById("hist").innerHTML=[...Array(WEEKS).keys()].map(i=>{
+    const sp=weekSpend(i), sv=INC-sp, d=wkStart(i), past=i<=curWeek();
+    if(past)cum+=sv;
+    const uo=CAP-sp;
+    return `<tr class="${i===curWeek()?"now":""}"><td>${i+1}</td><td>${dstr(d)}</td>
+      <td class="n">${past?money(sp):"—"}</td><td class="n">${money(CAP)}</td>
+      <td class="n ${past?(uo>=0?"pos":"neg"):""}">${past?money(uo):"—"}</td>
+      <td class="n">${past?money(sv):"—"}</td><td class="n">${past?money(cum):"—"}</td></tr>`;}).join("");
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("cat").innerHTML=CATS.map(c=>`<option value="${c.id}">${c.name}</option>`).join("");
+document.getElementById("date").value=iso(new Date());
+document.getElementById("prev").onclick=()=>{view=Math.max(0,view-1);render()};
+document.getElementById("next").onclick=()=>{view=Math.min(WEEKS-1,view+1);render()};
+document.getElementById("today").onclick=()=>{view=curWeek();render()};
+document.getElementById("entries").onclick=ev=>{const b=ev.target.closest(".del");if(b)delEntry(b.dataset.id)};
+document.getElementById("f").onsubmit=async ev=>{
+  ev.preventDefault();
+  const amt=parseFloat(document.getElementById("amt").value);
+  const date=document.getElementById("date").value;
+  if(!(amt>0)||!date)return;
+  const i=wkIndex(date);
+  if(i<0||i>=WEEKS){msg("That date is outside the 7 Sep – 15 Dec tracking window, so it wasn't added.");return;}
+  const btn=ev.target.querySelector(".add"); btn.disabled=true; btn.textContent="Adding…";
+  await addEntry({cat:document.getElementById("cat").value,amt:Math.round(amt*100)/100,date});
+  btn.disabled=false; btn.textContent="Add";
+  document.getElementById("amt").value=""; document.getElementById("amt").focus();
+  view=Math.max(0,Math.min(WEEKS-1,i)); render();
+};
+if("serviceWorker" in navigator&&location.protocol==="https:")
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+initStore();
+document.getElementById("exp").onclick=exportCSV;
+document.getElementById("imp").onchange=ev=>{if(ev.target.files[0])importCSV(ev.target.files[0]);ev.target.value="";};
+</script>
+
+</body>
+</html>

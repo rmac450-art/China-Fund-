@@ -216,6 +216,8 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
       <label>Already saved<input id="cfgOpen" type="number" step="0.01" min="0" placeholder="0.00"></label>
       <label>Savings goal<input id="cfgGoal" type="number" step="0.01" min="0" placeholder="auto"></label>
     </div>
+    <div id="cfgPreview" class="banner" style="margin:0 16px 12px;background:var(--jade-wash);
+      color:var(--jade-ink);display:flex;flex-wrap:wrap;gap:4px 18px"></div>
     <div style="padding:0 16px 4px;font-size:12px;color:var(--ink-3)">
       Leave <b>Savings goal</b> blank to let it work itself out from your income, caps and dates.
       <b>Already saved</b> is money set aside before you started logging — it counts toward the goal.
@@ -558,6 +560,51 @@ function render(){
 function esc(t){return String(t).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));}
 
 /* ---------- settings panel ---------- */
+/* Cost a candidate config without applying it, so the panel can show the
+   consequences of a date change while you're still typing. */
+function calc(c){
+  let st,en; try{st=parseD(c.start); en=parseD(c.end);}catch(e){return null;}
+  if(!(st instanceof Date)||isNaN(st)||isNaN(en)||en<=st)return null;
+  const inc=+c.income||0; if(!(inc>0))return null;
+  const cap=c.cats.reduce((a,x)=>a+(+x.cap||0),0), open=Math.max(0,+c.opening||0);
+  const weeks=Math.max(1,Math.ceil(((en-st)/864e5+1)/7));
+  const auto=Math.max(0,+(open+(inc-cap)*weeks).toFixed(2));
+  const goal=Math.max(1, c.goal>0?+c.goal:auto);
+  const now=new Date(); now.setHours(0,0,0,0);
+  const frac=i=>{const w=new Date(st); w.setDate(w.getDate()+i*7);
+    return Math.max(0,Math.min(1,(Math.floor((now-w)/864e5)+1)/7));};
+  const idx=d=>Math.floor((parseD(d)-st)/(7*864e5));
+  let bank=open, el=0, spent=0, orphan=0;
+  const inWin=new Map();
+  entries.forEach(e=>{const i=idx(e.date);
+    if(i<0||i>=weeks){orphan++;return;} inWin.set(i,(inWin.get(i)||0)+e.amt);});
+  for(let i=0;i<weeks;i++){const f=frac(i), sp=inWin.get(i)||0;
+    el+=f; spent+=sp; if(f>0||sp>0)bank+=inc*(f>=1?1:0)-sp;}
+  const avg=(el>0.15&&entries.length-orphan>0)?spent/el:cap;
+  return {weeks,auto,goal,bank,proj:open+(inc-avg)*weeks,orphan};
+}
+function draftFromInputs(){
+  const g=document.getElementById("cfgGoal").value.trim();
+  return {...draft,
+    income:parseFloat(document.getElementById("cfgInc").value),
+    start:document.getElementById("cfgStart").value,
+    end:document.getElementById("cfgEnd").value,
+    opening:parseFloat(document.getElementById("cfgOpen").value)||0,
+    goal:g===""?null:parseFloat(g)};
+}
+function updatePreview(){
+  const c=draftFromInputs(), r=calc(c), el=document.getElementById("cfgPreview");
+  const gf=document.getElementById("cfgGoal");
+  if(!r){el.textContent="Fill in income, start date and the date saving stops to see the effect.";
+    gf.placeholder="auto"; return;}
+  gf.placeholder="auto — "+money0(r.auto);
+  el.innerHTML=`<span><b>${r.weeks}</b> weeks</span>`
+    +`<span>goal <b>${money0(r.goal)}</b>${c.goal>0?"":" (auto)"}</span>`
+    +`<span>banked today <b>${money0(r.bank)}</b></span>`
+    +`<span>projected <b>${money0(r.proj)}</b></span>`
+    +(r.orphan?`<span style="color:var(--crimson)"><b>${r.orphan}</b> logged `
+      +`${r.orphan===1?"entry falls":"entries fall"} outside these dates and would stop counting</span>`:"");
+}
 let draft=null;
 function openSettings(){
   draft=structuredClone(CFG);
@@ -567,8 +614,7 @@ function openSettings(){
   document.getElementById("cfgEnd").value=draft.end;
   document.getElementById("cfgOpen").value=draft.opening||"";
   document.getElementById("cfgGoal").value=draft.goal>0?draft.goal:"";
-  document.getElementById("cfgGoal").placeholder="auto — "+money0(AUTOGOAL);
-  drawCats();
+  drawCats(); updatePreview();
   document.getElementById("setCard").classList.remove("hidden");
   document.getElementById("setBtn").setAttribute("aria-expanded","true");
   document.getElementById("setCard").scrollIntoView({behavior:"smooth",block:"start"});
@@ -587,14 +633,19 @@ function drawCats(){
 document.getElementById("catRows").oninput=ev=>{
   const t=ev.target, i=+t.dataset.i, k=t.dataset.k; if(!k)return;
   draft.cats[i][k]= k==="cap" ? (parseFloat(t.value)||0) : t.value;
+  updatePreview();
 };
+document.getElementById("setCard").addEventListener("input",ev=>{
+  if(ev.target.closest("#catRows"))return;            /* handled above */
+  updatePreview();
+});
 document.getElementById("catRows").onclick=ev=>{
   const b=ev.target.closest("[data-del]"); if(!b)return;
   if(draft.cats.length<=1){msg("Keep at least one category.");return;}
-  draft.cats.splice(+b.dataset.del,1); drawCats();
+  draft.cats.splice(+b.dataset.del,1); drawCats(); updatePreview();
 };
 document.getElementById("addCat").onclick=()=>{
-  draft.cats.push({id:"c"+Date.now().toString(36),name:"New category",cap:0,note:""}); drawCats();
+  draft.cats.push({id:"c"+Date.now().toString(36),name:"New category",cap:0,note:""}); drawCats(); updatePreview();
 };
 document.getElementById("saveCfg").onclick=()=>{
   const inc=parseFloat(document.getElementById("cfgInc").value);

@@ -21,6 +21,14 @@ Everything the maths runs on is editable, per device:
 | Savings goal | Leave blank to derive it from income, caps and dates |
 | Category caps | Add, rename, remove; the weekly cap is the sum |
 
+A preview strip inside the panel recalculates as you type — week count, goal, what you'd
+have banked today and the projected total — so you can see what a date change does before
+committing it. It also warns when a change would push already-logged entries outside the
+window, where they stop counting.
+
+Note that an explicitly typed goal is **pinned**: it stays put when you change the dates.
+Clear the field to go back to a goal that follows your income, caps and dates.
+
 ## How income is counted
 
 A week's income lands in the totals when that week **finishes**, not day by day. So

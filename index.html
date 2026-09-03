@@ -83,6 +83,7 @@ header .sub{font-size:13px;color:var(--ink-2);margin-top:2px}
 .strip .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .strip .v{font-size:17px;font-weight:600;margin-top:3px;font-family:"IBM Plex Mono",monospace;
   font-variant-numeric:tabular-nums}
+.strip .note{font-size:10.5px;color:var(--ink-3);margin-top:3px;line-height:1.35}
 
 /* week nav */
 .weeknav{display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -253,7 +254,8 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
       <div><div class="k">Net income /wk</div><div class="v" id="sInc">—</div></div>
       <div><div class="k">Spent this week</div><div class="v" id="sWeek">$0.00</div></div>
       <div><div class="k">Left this week</div><div class="v" id="sLeft">—</div></div>
-      <div><div class="k">Projected total</div><div class="v" id="sProj">—</div></div>
+      <div><div class="k">Projected total</div><div class="v" id="sProj">—</div>
+        <div class="note" id="sProjNote"></div></div>
     </div>
   </section>
 
@@ -484,11 +486,20 @@ function render(){
   document.getElementById("sLeft").textContent=money(CAP-ws);
   document.getElementById("sLeft").style.color=CAP-ws<0?"var(--crimson)":"";
   const totalSpent=[...Array(WEEKS).keys()].reduce((a,i)=>a+weekSpend(i),0);
-  const avg=el>0.15?totalSpent/el:CAP;
-  const proj=OPENING+(INC-(entries.length?avg:CAP))*WEEKS;
+  /* Extrapolating a couple of sparse weeks across the whole term flatters the result
+     badly, so trust the observed rate only as it earns it: start from the planned cap
+     and lean on real behaviour as the weeks accumulate. */
+  const obs=el>0?totalSpent/el:0;
+  const conf=entries.length?Math.max(0,Math.min(1,(el-1)/3)):0;
+  const assumed=conf*obs+(1-conf)*CAP;
+  const proj=OPENING+(INC-assumed)*WEEKS;
   const projEl=document.getElementById("sProj");
   projEl.textContent=money0(proj);
   projEl.style.color=proj>=GOAL?"var(--jade)":"var(--crimson)";
+  document.getElementById("sProjNote").textContent = !entries.length
+    ? `assumes you spend your full ${money(CAP)} cap`
+    : conf>=1 ? `at your actual ${money(obs)}/wk`
+    : `assumes ${money(assumed)}/wk — part cap, part your ${money(obs)}/wk so far`;
   const pwNow=paidWeeks(), bits=[];
   if(OPENING>0)bits.push(`includes ${money(OPENING)} already saved`);
   if(pwNow<WEEKS){const nx=wkStart(pwNow); nx.setDate(nx.getDate()+7);
@@ -580,8 +591,9 @@ function calc(c){
     if(i<0||i>=weeks){orphan++;return;} inWin.set(i,(inWin.get(i)||0)+e.amt);});
   for(let i=0;i<weeks;i++){const f=frac(i), sp=inWin.get(i)||0;
     el+=f; spent+=sp; if(f>0||sp>0)bank+=inc*(f>=1?1:0)-sp;}
-  const avg=(el>0.15&&entries.length-orphan>0)?spent/el:cap;
-  return {weeks,auto,goal,bank,proj:open+(inc-avg)*weeks,orphan};
+  const n=entries.length-orphan;
+  const obs=el>0?spent/el:0, cf=n>0?Math.max(0,Math.min(1,(el-1)/3)):0;
+  return {weeks,auto,goal,bank,proj:open+(inc-(cf*obs+(1-cf)*cap))*weeks,orphan};
 }
 function draftFromInputs(){
   const g=document.getElementById("cfgGoal").value.trim();

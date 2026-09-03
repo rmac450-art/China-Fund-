@@ -29,6 +29,19 @@ window, where they stop counting.
 Note that an explicitly typed goal is **pinned**: it stays put when you change the dates.
 Clear the field to go back to a goal that follows your income, caps and dates.
 
+## How the projection works
+
+**Projected total** is what you'd finish with. Future spending is assumed at your weekly
+cap to begin with, and shifts onto your actual observed rate over the first four weeks —
+extrapolating a couple of sparse weeks across the whole term flatters the number badly,
+so the observed rate has to earn its place. The caption under the figure always says which
+assumption is currently in play.
+
+It counts your **Already saved** balance, so it is the total you'd *hold*, not the amount
+you'd *add*. If your goal figure means "money added from here", the projection will sit
+above it by roughly your opening balance — that's the two numbers measuring different
+things, not an error.
+
 ## How income is counted
 
 A week's income lands in the totals when that week **finishes**, not day by day. So

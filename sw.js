@@ -1,5 +1,6 @@
-/* Cache the app shell so it opens with no connection. Bump CACHE to force an update. */
-const CACHE = "china-fund-v1";
+/* App shell cache. HTML is network-first so a deploy reaches installed home-screen
+   apps immediately; static assets stay cache-first. Bump CACHE on asset changes. */
+const CACHE = "china-fund-v2";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -12,6 +13,21 @@ self.addEventListener("activate", e => {
 });
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+  const isHTML = e.request.mode === "navigate" ||
+    (e.request.headers.get("accept") || "").includes("text/html");
+
+  if (isHTML) {
+    // Network first: always try for the newest app, fall back to cache offline.
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put("./index.html", copy));
+        return res;
+      }).catch(() => caches.match("./index.html").then(hit => hit || caches.match("./")))
+    );
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
       if (res && res.status === 200 && res.type === "basic") {
@@ -19,6 +35,6 @@ self.addEventListener("fetch", e => {
         caches.open(CACHE).then(c => c.put(e.request, copy));
       }
       return res;
-    }).catch(() => caches.match("./index.html")))
+    }))
   );
 });

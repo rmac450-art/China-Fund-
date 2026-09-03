@@ -1,8 +1,10 @@
 # China Fund
 
-A weekly spending tracker for a savings goal: **$5,920 by 15 December 2026**.
+A weekly spending tracker for a savings goal. It ships with an example budget —
+**$5,920 by 16 December 2026**, eight category caps totalling **$115.04/wk** against
+**$509.72/wk** of net income — but every one of those numbers is editable under
+**Settings**, so anyone can point it at their own goal.
 
-Eight weekly category caps totalling **$115.04/wk** against **$509.72/wk** of net income.
 Commute spending is tracked separately from discretionary transport, because it protects
 the income that funds the goal.
 
@@ -13,9 +15,13 @@ app icon. On Android: **Install app** from the Chrome menu.
 
 ## Privacy
 
-Entries are stored in your own browser via `localStorage`. Nothing is uploaded, and no
-server ever sees your data — the hosted page is just the empty dashboard. Use **Export CSV**
-to back up or move between devices.
+There is no server and no account. Entries and your budget settings live in `localStorage`,
+which the browser scopes to this site on that one device. Two people using the same link
+on their own phones cannot see each other's data — it never leaves the phone it was typed
+on. Use **Export CSV** to back up, or to move to a new device.
+
+The trade-off: clearing browser data wipes your entries, and nothing syncs between your
+own devices. Export a CSV every so often.
 
 ## Files
 

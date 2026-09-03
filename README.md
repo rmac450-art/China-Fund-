@@ -21,6 +21,16 @@ Everything the maths runs on is editable, per device:
 | Savings goal | Leave blank to derive it from income, caps and dates |
 | Category caps | Add, rename, remove; the weekly cap is the sum |
 
+## How income is counted
+
+A week's income lands in the totals when that week **finishes**, not day by day. So
+"Banked so far" only ever counts money you've actually been paid, and can be compared
+directly with your bank balance. The figure steps up once a week rather than creeping
+daily; the status line tells you when the next payment lands.
+
+Spending, by contrast, counts the moment you log it. A week still in progress therefore
+shows a negative "Saved" figure marked with `*` until its income arrives.
+
 ## Logging something you forgot
 
 The date field is bounded to the fund's window, so the picker won't offer an impossible

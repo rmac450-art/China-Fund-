@@ -435,7 +435,11 @@ function wkFrac(i){const s=wkStart(i),n=new Date();n.setHours(0,0,0,0);
   return Math.max(0,Math.min(1,(Math.floor((n-s)/864e5)+1)/7));}
 function elapsedWeeks(){let f=0;for(let i=0;i<WEEKS;i++)f+=wkFrac(i);return f;}
 /* income accrues day by day; spending counts the moment it happens */
-const weekSaved=i=>INC*wkFrac(i)-weekSpend(i);
+/* A week's income lands when that week finishes, so "Banked so far" never counts
+   money that hasn't been paid yet and can be compared with a real bank balance. */
+const wkPaid=i=>wkFrac(i)>=1?1:0;
+function paidWeeks(){let n=0;for(let i=0;i<WEEKS;i++)n+=wkPaid(i);return n;}
+const weekSaved=i=>INC*wkPaid(i)-weekSpend(i);
 function banked(){let t=OPENING;for(let i=0;i<WEEKS;i++){
   if(wkFrac(i)<=0&&weekSpend(i)===0)continue; t+=weekSaved(i);}return t;}
 const started=()=>elapsedWeeks()>0;
@@ -450,7 +454,8 @@ function render(){
   document.getElementById("goalEnd").textContent=money0(GOAL);
   document.getElementById("goalDate").textContent=dstr(endD);
   document.getElementById("sInc").textContent=money(INC);
-  document.getElementById("histNote").textContent=`Saved = ${money(INC)} − spent`;
+  document.getElementById("histNote").textContent=
+    `${money(INC)} lands at each week's end · * week still running, income not in yet`;
   document.getElementById("footNote").textContent=CFG.note||"";
 
   document.getElementById("wksLeft").textContent=Math.max(0,WEEKS-curWeek()-1);
@@ -458,7 +463,8 @@ function render(){
   const b=banked(), pct=Math.max(0,Math.min(100,b/GOAL*100));
   document.getElementById("banked").textContent=money0(b);
   document.getElementById("fill").style.width=pct+"%";
-  const el=elapsedWeeks(), paceTarget=OPENING+(GOAL-OPENING)*(el/WEEKS),
+  const el=elapsedWeeks(), pw=paidWeeks(),
+        paceTarget=OPENING+(GOAL-OPENING)*(pw/WEEKS),
         pacePct=Math.max(0,Math.min(100,paceTarget/GOAL*100));
   document.getElementById("pace").style.left=pacePct+"%";
   document.getElementById("paceLbl").textContent="on pace: "+money0(paceTarget);
@@ -477,12 +483,15 @@ function render(){
   document.getElementById("sLeft").style.color=CAP-ws<0?"var(--crimson)":"";
   const totalSpent=[...Array(WEEKS).keys()].reduce((a,i)=>a+weekSpend(i),0);
   const avg=el>0.15?totalSpent/el:CAP;
-  const proj=b+(INC-(entries.length?avg:CAP))*Math.max(0,WEEKS-el);
+  const proj=OPENING+(INC-(entries.length?avg:CAP))*WEEKS;
   const projEl=document.getElementById("sProj");
   projEl.textContent=money0(proj);
   projEl.style.color=proj>=GOAL?"var(--jade)":"var(--crimson)";
-  document.getElementById("openNote").textContent=
-    OPENING>0?`includes ${money(OPENING)} already saved`:"";
+  const pwNow=paidWeeks(), bits=[];
+  if(OPENING>0)bits.push(`includes ${money(OPENING)} already saved`);
+  if(pwNow<WEEKS){const nx=wkStart(pwNow); nx.setDate(nx.getDate()+7);
+    bits.push(`next ${money(INC)} lands ${dstr(nx)}`);}
+  document.getElementById("openNote").textContent=bits.join(" · ");
 
   const s=wkStart(view), e=new Date(s); e.setDate(e.getDate()+6);
   document.getElementById("wkTitle").textContent="Week "+(view+1)+(view===curWeek()?" · now":"");
@@ -537,13 +546,14 @@ function render(){
   /* history: income pro-rated by days elapsed, so Cumulative matches "Banked so far" */
   let cum=OPENING;
   document.getElementById("hist").innerHTML=[...Array(WEEKS).keys()].map(i=>{
-    const f=wkFrac(i), sp=weekSpend(i), live=f>0||sp>0, sv=weekSaved(i), d=wkStart(i);
+    const f=wkFrac(i), sp=weekSpend(i), live=f>0||sp>0, sv=weekSaved(i), d=wkStart(i), paid=wkPaid(i);
     if(live)cum+=sv;
     const uo=CAP-sp, part=f>0&&f<1;
     return `<tr class="${i===curWeek()?"now":""}"><td>${i+1}${part?" ·":""}</td><td>${dstr(d)}</td>
       <td class="n">${live?money(sp):"—"}</td><td class="n">${money(CAP)}</td>
       <td class="n ${live?(uo>=0?"pos":"neg"):""}">${live?money(uo):"—"}</td>
-      <td class="n">${live?money(sv):"—"}</td><td class="n">${live?money(cum):"—"}</td></tr>`;}).join("");
+      <td class="n">${live?(paid?money(sv):"<span style='color:var(--ink-3)'>"+money(sv)+" *</span>"):"—"}</td>
+      <td class="n">${live?money(cum):"—"}</td></tr>`;}).join("");
 }
 function esc(t){return String(t).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));}
 

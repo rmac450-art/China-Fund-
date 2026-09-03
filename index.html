@@ -146,6 +146,13 @@ tr.now td{background:var(--jade-wash)}
 .neg{color:var(--crimson);font-weight:600}
 .banner{padding:11px 16px;font-size:13px;border-radius:var(--r);
   background:var(--amber-wash);color:var(--amber);border:1px solid var(--line-soft)}
+.banner button{margin-left:10px;font-size:12.5px;padding:4px 10px;border-color:currentColor;
+  background:transparent;color:inherit;font-weight:600}
+.wkSep{padding:8px 16px;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  font-weight:600;color:var(--ink-3);background:var(--sunk);border-bottom:1px solid var(--line-soft)}
+.ent.flash{animation:flash 1.6s ease-out}
+@keyframes flash{from{background:var(--jade-wash)}to{background:transparent}}
+.scopeOn{background:var(--sunk);border-color:var(--line)}
 footer{font-size:12px;color:var(--ink-3);line-height:1.65}
 
 /* settings */
@@ -264,7 +271,13 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
   </section>
 
   <section class="card">
-    <div class="weeknav"><div class="t">This week's entries</div><div class="d" id="entCount">—</div></div>
+    <div class="weeknav">
+      <div><div class="t" id="entTitle">This week's entries</div><div class="d" id="entCount">—</div></div>
+      <div class="nav">
+        <button id="scopeWk" class="iconbtn" aria-pressed="true">This week</button>
+        <button id="scopeAll" class="iconbtn" aria-pressed="false">All</button>
+      </div>
+    </div>
     <div id="entries"></div>
   </section>
 
@@ -334,7 +347,7 @@ function wkIndex(s){const [y,m,d]=s.split("-").map(Number);
   return Math.floor((new Date(y,m-1,d)-START)/(7*864e5));}
 function curWeek(){return Math.max(0,Math.min(WEEKS-1,wkIndex(iso(new Date()))));}
 
-let entries=[], view=curWeek();
+let entries=[], view=curWeek(), showAll=false, flashId=null;
 
 /* ---------- storage ---------- */
 const lsRead=()=>{try{return JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){return[]}};
@@ -343,7 +356,8 @@ const lsWrite=()=>{try{localStorage.setItem(LS,JSON.stringify(entries))}catch(e)
 function msg(t){document.getElementById("storeMsg").innerHTML=t?`<div class="banner">${t}</div>`:"";}
 const newId=()=>"l"+Date.now()+Math.random().toString(36).slice(2,6);
 
-function addEntry(e){ entries=[...entries,{id:newId(),...e}]; lsWrite(); render(); }
+function addEntry(e){ const it={id:newId(),...e}; entries=[...entries,it]; flashId=it.id;
+  lsWrite(); render(); setTimeout(()=>{if(flashId===it.id){flashId=null;}},1800); }
 function delEntry(id){ entries=entries.filter(x=>x.id!==id); lsWrite(); render(); }
 
 function exportCSV(){
@@ -449,15 +463,37 @@ function render(){
       <div class="mNote">${rem>=0?money(rem)+" left":"<b style='color:var(--crimson)'>"+money(-rem)+" over</b>"}${c.note?" · "+esc(c.note):""}</div>
     </div>`;}).join("");
 
-  const we=weekEntries(view).slice().sort((a,b)=>b.date.localeCompare(a.date));
-  document.getElementById("entCount").textContent=we.length?we.length+" logged · "+money(ws):"nothing logged";
-  document.getElementById("entries").innerHTML = we.length ? we.map(x=>{
-    const c=CATS.find(k=>k.id===x.cat);
-    return `<div class="ent"><span class="dt">${dstr(new Date(x.date+"T00:00:00"))}</span>
+  const we=(showAll?entries.slice():weekEntries(view).slice()).sort((a,b)=>
+    b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+  const weTotal=we.reduce((a,x)=>a+x.amt,0);
+  document.getElementById("entTitle").textContent=showAll?"Every entry":"This week's entries";
+  document.getElementById("entCount").textContent=
+    we.length? we.length+" logged · "+money(weTotal) : showAll?"nothing logged yet":"nothing logged";
+  document.getElementById("scopeWk").classList.toggle("scopeOn",!showAll);
+  document.getElementById("scopeAll").classList.toggle("scopeOn",showAll);
+  document.getElementById("scopeWk").setAttribute("aria-pressed",String(!showAll));
+  document.getElementById("scopeAll").setAttribute("aria-pressed",String(showAll));
+
+  const row=x=>{const c=CATS.find(k=>k.id===x.cat);
+    return `<div class="ent${x.id===flashId?" flash":""}"><span class="dt">${dstr(new Date(x.date+"T00:00:00"))}</span>
       <span class="c">${esc(c?c.name:x.cat)}</span>
       <span class="amt">${money(x.amt)}</span>
-      <button class="del" data-id="${x.id}" aria-label="Delete entry">×</button></div>`;}).join("")
-    : `<div class="empty">Nothing logged this week yet.</div>`;
+      <button class="del" data-id="${x.id}" aria-label="Delete entry">×</button></div>`;};
+
+  let html;
+  if(!we.length){
+    html=`<div class="empty">${showAll?"Nothing logged at all yet.":"Nothing logged this week yet. Tap <b>All</b> to see other weeks."}</div>`;
+  }else if(!showAll){
+    html=we.map(row).join("");
+  }else{
+    let last=null; html="";
+    we.forEach(x=>{const i=wkIndex(x.date);
+      if(i!==last){last=i;
+        const st=wkStart(i), en=new Date(st); en.setDate(en.getDate()+6);
+        html+=`<div class="wkSep">Week ${i+1} · ${dstr(st)} – ${dstr(en)}${i===curWeek()?" · now":""}</div>`;}
+      html+=row(x);});
+  }
+  document.getElementById("entries").innerHTML=html;
 
   /* history: income pro-rated by days elapsed, so Cumulative matches "Banked so far" */
   let cum=0;
@@ -519,12 +555,12 @@ document.getElementById("saveCfg").onclick=()=>{
   if(draft.income-draft.cats.reduce((a,c)=>a+c.cap,0)<=0){
     msg("Your caps add up to your whole income, so the goal would be zero. Lower a cap first.");return;}
   CFG=draft; try{localStorage.setItem(LS_CFG,JSON.stringify(CFG));}catch(e){}
-  applyCfg(); view=curWeek(); fillCatSelect(); closeSettings(); msg(""); render();
+  applyCfg(); view=curWeek(); fillCatSelect(); setDateBounds(); closeSettings(); msg(""); render();
 };
 document.getElementById("resetCfg").onclick=()=>{
   if(!confirm("Reset the budget back to the built-in defaults? Your logged entries are kept."))return;
   localStorage.removeItem(LS_CFG); CFG=loadCfg(); applyCfg(); view=curWeek();
-  fillCatSelect(); openSettings(); render();
+  fillCatSelect(); setDateBounds(); openSettings(); render();
 };
 document.getElementById("wipe").onclick=()=>{
   if(!confirm("Delete every entry on this device? This cannot be undone — export a CSV first if you want a copy."))return;
@@ -567,14 +603,48 @@ document.getElementById("f").onsubmit=ev=>{
   const date=document.getElementById("date").value;
   if(!(amt>0)||!date)return;
   const i=wkIndex(date);
-  if(i<0||i>=WEEKS){
-    msg(`That date is outside the ${dstr(START)} – ${dstr(lastDay())} tracking window, so it wasn't added. `
-       +`Change the start date in Settings if your fund began earlier.`);return;}
+  if(i<0){
+    /* Before the fund started. Offer to pull the start back in whole weeks so the
+       existing week boundaries — and the end date — stay exactly where they are. */
+    pending={cat:document.getElementById("cat").value,amt:Math.round(amt*100)/100,date};
+    const back=Math.ceil(-i);
+    msg(`${dstr(new Date(date+"T00:00:00"))} is before your fund starts (${dstr(START)}), so it wasn't added.`
+      +`<button id="extend">Start ${back===1?"a week":back+" weeks"} earlier &amp; add it</button>`);
+    document.getElementById("extend").onclick=extendBack;
+    return;}
+  if(i>=WEEKS){
+    msg(`${dstr(new Date(date+"T00:00:00"))} is past the end of the fund (${dstr(lastDay())}), so it wasn't added. `
+      +`Add more weeks in Settings if the fund runs longer.`);return;}
   msg("");
+  const before=view;
   addEntry({cat:document.getElementById("cat").value,amt:Math.round(amt*100)/100,date});
   document.getElementById("amt").value=""; document.getElementById("amt").focus();
-  view=i; render();
+  view=i;
+  if(i!==before) msg(`Added to week ${i+1} (${dstr(wkStart(i))}) — showing that week now.`);
+  render();
 };
+let pending=null;
+function extendBack(){
+  if(!pending)return;
+  const back=Math.ceil(-wkIndex(pending.date));           /* whole weeks to reach that date */
+  const ns=new Date(START); ns.setDate(ns.getDate()-back*7);
+  CFG.start=iso(ns); CFG.weeks=WEEKS+back;                /* end date and boundaries unchanged */
+  try{localStorage.setItem(LS_CFG,JSON.stringify(CFG));}catch(e){}
+  applyCfg(); setDateBounds();
+  const e=pending; pending=null;
+  addEntry(e);
+  flashId=entries[entries.length-1].id;
+  view=wkIndex(e.date);
+  msg(`Fund now starts ${dstr(START)} — the entry is in week ${view+1}.`);
+  render(); setTimeout(()=>{flashId=null;},1800);
+}
+function setDateBounds(){
+  const d=document.getElementById("date");
+  d.min=iso(START); d.max=iso(lastDay());
+}
+setDateBounds();
+document.getElementById("scopeWk").onclick=()=>{showAll=false;render()};
+document.getElementById("scopeAll").onclick=()=>{showAll=true;render()};
 document.getElementById("exp").onclick=exportCSV;
 document.getElementById("imp").onchange=ev=>{if(ev.target.files[0])importCSV(ev.target.files[0]);ev.target.value="";};
 

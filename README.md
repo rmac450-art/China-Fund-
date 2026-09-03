@@ -8,6 +8,17 @@ A weekly spending tracker for a savings goal. It ships with an example budget �
 Commute spending is tracked separately from discretionary transport, because it protects
 the income that funds the goal.
 
+## Logging something you forgot
+
+The date field is bounded to the fund's window, so the picker won't offer an impossible
+day. Backdating within the window just works — the app jumps to whichever week the date
+falls in and tells you it did. If the date is *before* the fund started, it offers to pull
+the start date back in whole weeks, which keeps the existing week boundaries and end date
+exactly where they were (the goal rises, since you've added a week of saving).
+
+The entries card has a **This week / All** toggle. **All** lists every entry you've ever
+logged, grouped by week — use it when you're not sure whether something got recorded.
+
 ## Use it
 
 Open the published page, then on iPhone: **Share → Add to Home Screen** for a fullscreen

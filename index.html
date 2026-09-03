@@ -212,7 +212,13 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
       <label>Fund name<input id="cfgName" type="text" maxlength="28"></label>
       <label>Net income / week<input id="cfgInc" type="number" step="0.01" min="0"></label>
       <label>Start date<input id="cfgStart" type="date"></label>
-      <label>Number of weeks<input id="cfgWeeks" type="number" step="1" min="1" max="104"></label>
+      <label>Saving stops<input id="cfgEnd" type="date"></label>
+      <label>Already saved<input id="cfgOpen" type="number" step="0.01" min="0" placeholder="0.00"></label>
+      <label>Savings goal<input id="cfgGoal" type="number" step="0.01" min="0" placeholder="auto"></label>
+    </div>
+    <div style="padding:0 16px 4px;font-size:12px;color:var(--ink-3)">
+      Leave <b>Savings goal</b> blank to let it work itself out from your income, caps and dates.
+      <b>Already saved</b> is money set aside before you started logging — it counts toward the goal.
     </div>
     <div class="catEdit">
       <div class="eyebrow" style="margin-bottom:8px">Weekly category caps</div>
@@ -238,7 +244,8 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
       </div>
       <div class="track"><div class="fill" id="fill" style="width:0%"></div><div class="pace" id="pace" style="left:0%"></div></div>
       <div class="trackLabels"><span>$0</span><span id="paceLbl">on-pace marker</span><span id="goalEnd">—</span></div>
-      <div><span class="status ok" id="status"><span class="dot"></span><span id="statusTxt">Getting started</span></span></div>
+      <div><span class="status ok" id="status"><span class="dot"></span><span id="statusTxt">Getting started</span></span>
+        <span id="openNote" style="font-size:12px;color:var(--ink-3);margin-left:10px"></span></div>
     </div>
     <div class="strip">
       <div><div class="k">Net income /wk</div><div class="v" id="sInc">—</div></div>
@@ -308,7 +315,7 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
 <script>
 /* ---------- configuration: defaults, overridable per device ---------- */
 const DEFAULT_CFG={
- name:"China Fund", income:509.72, start:"2026-09-03", weeks:15,
+ name:"China Fund", income:509.72, start:"2026-09-03", end:"2026-12-16", opening:0, goal:null,
  note:"Assumes StudyLink $333.48 + job $326.24 − $150 to Dad = $509.72/wk, and that no rent, phone or power lands in this account. If a shift falls through or a fixed cost appears, the projection moves.",
  cats:[
  {id:"commute",   name:"Commute",          cap:18.66, tag:"Protected", note:"2 rides × ~3.5 shifts — this earns your $326"},
@@ -324,15 +331,26 @@ const LS="chinafund.entries", LS_CFG="chinafund.config", LS_THEME="chinafund.the
 function loadCfg(){
   try{const raw=JSON.parse(localStorage.getItem(LS_CFG)||"null");
     if(!raw||!Array.isArray(raw.cats)||!raw.cats.length)return structuredClone(DEFAULT_CFG);
-    return Object.assign(structuredClone(DEFAULT_CFG),raw);
+    const c=Object.assign(structuredClone(DEFAULT_CFG),raw);
+    /* configs saved before end-dates existed carry a week count instead */
+    if(!raw.end&&raw.weeks){const [y,m,d]=c.start.split("-").map(Number);
+      const e=new Date(y,m-1,d); e.setDate(e.getDate()+raw.weeks*7-1);
+      c.end=`${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-${String(e.getDate()).padStart(2,"0")}`;}
+    delete c.weeks;
+    return c;
   }catch(e){return structuredClone(DEFAULT_CFG);}
 }
 let CFG=loadCfg();
-let CATS,CAP,INC,WEEKS,GOAL,START;
+let CATS,CAP,INC,WEEKS,GOAL,AUTOGOAL,START,END,OPENING;
+const parseD=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);};
 function applyCfg(){
-  CATS=CFG.cats; CAP=CATS.reduce((a,c)=>a+(+c.cap||0),0); INC=+CFG.income||0; WEEKS=+CFG.weeks||1;
-  GOAL=Math.max(1,+((INC-CAP)*WEEKS).toFixed(2));
-  const [y,m,d]=CFG.start.split("-").map(Number); START=new Date(y,m-1,d);
+  CATS=CFG.cats; CAP=CATS.reduce((a,c)=>a+(+c.cap||0),0); INC=+CFG.income||0;
+  OPENING=Math.max(0,+CFG.opening||0);
+  START=parseD(CFG.start); END=parseD(CFG.end);
+  /* weeks are 7-day blocks from the start; the last one covers the final day */
+  WEEKS=Math.max(1,Math.ceil(((END-START)/864e5+1)/7));
+  AUTOGOAL=Math.max(0,+(OPENING+(INC-CAP)*WEEKS).toFixed(2));
+  GOAL=Math.max(1, CFG.goal>0 ? +CFG.goal : AUTOGOAL);
 }
 applyCfg();
 
@@ -350,8 +368,23 @@ function curWeek(){return Math.max(0,Math.min(WEEKS-1,wkIndex(iso(new Date()))))
 let entries=[], view=curWeek(), showAll=false, flashId=null;
 
 /* ---------- storage ---------- */
-const lsRead=()=>{try{return JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){return[]}};
-const lsWrite=()=>{try{localStorage.setItem(LS,JSON.stringify(entries))}catch(e){
+/* Entries are mirrored to a second key. If the main key is ever lost or comes back
+   empty while the mirror still holds data, the mirror wins — losing a savings log to a
+   half-finished write is worse than the cost of keeping two copies. */
+const LS_BAK=LS+".backup";
+function lsRead(){
+  let main=[],bak=[];
+  try{main=JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){}
+  try{bak=JSON.parse(localStorage.getItem(LS_BAK)||"[]")}catch(e){}
+  if(!Array.isArray(main))main=[]; if(!Array.isArray(bak))bak=[];
+  if(bak.length>main.length){
+    try{localStorage.setItem(LS,JSON.stringify(bak));}catch(e){}   /* heal the main key now */
+    setTimeout(()=>msg(`Recovered ${bak.length} ${bak.length===1?"entry":"entries"} from this device's backup copy.`),0);
+    return bak;}
+  return main;
+}
+const lsWrite=()=>{try{const j=JSON.stringify(entries);
+  localStorage.setItem(LS,j); localStorage.setItem(LS_BAK,j);}catch(e){
   msg("This browser refused to save — private mode? Export a CSV before you close the tab.");}};
 function msg(t){document.getElementById("storeMsg").innerHTML=t?`<div class="banner">${t}</div>`:"";}
 const newId=()=>"l"+Date.now()+Math.random().toString(36).slice(2,6);
@@ -403,13 +436,13 @@ function wkFrac(i){const s=wkStart(i),n=new Date();n.setHours(0,0,0,0);
 function elapsedWeeks(){let f=0;for(let i=0;i<WEEKS;i++)f+=wkFrac(i);return f;}
 /* income accrues day by day; spending counts the moment it happens */
 const weekSaved=i=>INC*wkFrac(i)-weekSpend(i);
-function banked(){let t=0;for(let i=0;i<WEEKS;i++){
+function banked(){let t=OPENING;for(let i=0;i<WEEKS;i++){
   if(wkFrac(i)<=0&&weekSpend(i)===0)continue; t+=weekSaved(i);}return t;}
 const started=()=>elapsedWeeks()>0;
 
 /* ---------- render ---------- */
 function render(){
-  const endD=lastDay();
+  const endD=END;
   document.getElementById("appTitle").textContent=CFG.name;
   document.getElementById("subTxt").textContent=
     `${dstr(START)} – ${dstr(endD)} ${endD.getFullYear()} · ${money(CAP)}/wk cap · goal ${money0(GOAL)}`;
@@ -423,9 +456,10 @@ function render(){
   document.getElementById("wksLeft").textContent=Math.max(0,WEEKS-curWeek()-1);
 
   const b=banked(), pct=Math.max(0,Math.min(100,b/GOAL*100));
-  document.getElementById("banked").textContent=money0(started()?b:0);
+  document.getElementById("banked").textContent=money0(b);
   document.getElementById("fill").style.width=pct+"%";
-  const el=elapsedWeeks(), paceTarget=(INC-CAP)*el, pacePct=Math.max(0,Math.min(100,paceTarget/GOAL*100));
+  const el=elapsedWeeks(), paceTarget=OPENING+(GOAL-OPENING)*(el/WEEKS),
+        pacePct=Math.max(0,Math.min(100,paceTarget/GOAL*100));
   document.getElementById("pace").style.left=pacePct+"%";
   document.getElementById("paceLbl").textContent="on pace: "+money0(paceTarget);
 
@@ -443,7 +477,12 @@ function render(){
   document.getElementById("sLeft").style.color=CAP-ws<0?"var(--crimson)":"";
   const totalSpent=[...Array(WEEKS).keys()].reduce((a,i)=>a+weekSpend(i),0);
   const avg=el>0.15?totalSpent/el:CAP;
-  document.getElementById("sProj").textContent=money0(b+(INC-(entries.length?avg:CAP))*Math.max(0,WEEKS-el));
+  const proj=b+(INC-(entries.length?avg:CAP))*Math.max(0,WEEKS-el);
+  const projEl=document.getElementById("sProj");
+  projEl.textContent=money0(proj);
+  projEl.style.color=proj>=GOAL?"var(--jade)":"var(--crimson)";
+  document.getElementById("openNote").textContent=
+    OPENING>0?`includes ${money(OPENING)} already saved`:"";
 
   const s=wkStart(view), e=new Date(s); e.setDate(e.getDate()+6);
   document.getElementById("wkTitle").textContent="Week "+(view+1)+(view===curWeek()?" · now":"");
@@ -496,7 +535,7 @@ function render(){
   document.getElementById("entries").innerHTML=html;
 
   /* history: income pro-rated by days elapsed, so Cumulative matches "Banked so far" */
-  let cum=0;
+  let cum=OPENING;
   document.getElementById("hist").innerHTML=[...Array(WEEKS).keys()].map(i=>{
     const f=wkFrac(i), sp=weekSpend(i), live=f>0||sp>0, sv=weekSaved(i), d=wkStart(i);
     if(live)cum+=sv;
@@ -515,7 +554,10 @@ function openSettings(){
   document.getElementById("cfgName").value=draft.name;
   document.getElementById("cfgInc").value=draft.income;
   document.getElementById("cfgStart").value=draft.start;
-  document.getElementById("cfgWeeks").value=draft.weeks;
+  document.getElementById("cfgEnd").value=draft.end;
+  document.getElementById("cfgOpen").value=draft.opening||"";
+  document.getElementById("cfgGoal").value=draft.goal>0?draft.goal:"";
+  document.getElementById("cfgGoal").placeholder="auto — "+money0(AUTOGOAL);
   drawCats();
   document.getElementById("setCard").classList.remove("hidden");
   document.getElementById("setBtn").setAttribute("aria-expanded","true");
@@ -546,14 +588,24 @@ document.getElementById("addCat").onclick=()=>{
 };
 document.getElementById("saveCfg").onclick=()=>{
   const inc=parseFloat(document.getElementById("cfgInc").value);
-  const wks=parseInt(document.getElementById("cfgWeeks").value,10);
   const st=document.getElementById("cfgStart").value;
-  if(!(inc>0)||!(wks>0)||!st){msg("Income, weeks and start date all need a valid value.");return;}
+  const en=document.getElementById("cfgEnd").value;
+  const op=parseFloat(document.getElementById("cfgOpen").value)||0;
+  const gv=document.getElementById("cfgGoal").value.trim();
+  const gl=gv===""?null:parseFloat(gv);
+  if(!(inc>0)||!st||!en){msg("Income, start date and the date saving stops all need a value.");return;}
+  if(parseD(en)<=parseD(st)){msg("The date saving stops has to come after the start date.");return;}
+  if(op<0){msg("\"Already saved\" can't be negative.");return;}
+  if(gl!==null&&!(gl>0)){msg("Leave the goal blank for automatic, or enter an amount above zero.");return;}
   draft.name=document.getElementById("cfgName").value.trim()||"My Fund";
-  draft.income=Math.round(inc*100)/100; draft.weeks=wks; draft.start=st;
+  draft.income=Math.round(inc*100)/100; draft.start=st; draft.end=en;
+  draft.opening=Math.round(op*100)/100; draft.goal=gl===null?null:Math.round(gl*100)/100;
   draft.cats=draft.cats.map(c=>({...c,name:(c.name||"").trim()||"Unnamed",cap:Math.max(0,+c.cap||0)}));
-  if(draft.income-draft.cats.reduce((a,c)=>a+c.cap,0)<=0){
-    msg("Your caps add up to your whole income, so the goal would be zero. Lower a cap first.");return;}
+  if(draft.goal===null&&draft.income-draft.cats.reduce((a,c)=>a+c.cap,0)<=0){
+    msg("Your caps add up to your whole income, so the automatic goal would be zero. "
+       +"Lower a cap, or type a goal amount instead.");return;}
+  if(draft.goal!==null&&draft.goal<=draft.opening){
+    msg("Your goal is at or below what you've already saved — you'd start finished.");return;}
   CFG=draft; try{localStorage.setItem(LS_CFG,JSON.stringify(CFG));}catch(e){}
   applyCfg(); view=curWeek(); fillCatSelect(); setDateBounds(); closeSettings(); msg(""); render();
 };
@@ -564,7 +616,8 @@ document.getElementById("resetCfg").onclick=()=>{
 };
 document.getElementById("wipe").onclick=()=>{
   if(!confirm("Delete every entry on this device? This cannot be undone — export a CSV first if you want a copy."))return;
-  entries=[]; lsWrite(); render(); msg("All entries erased.");
+  entries=[]; lsWrite(); try{localStorage.removeItem(LS_BAK);}catch(e){}
+  render(); msg("All entries erased.");
 };
 document.getElementById("setBtn").onclick=()=>
   document.getElementById("setCard").classList.contains("hidden")?openSettings():closeSettings();
@@ -613,8 +666,8 @@ document.getElementById("f").onsubmit=ev=>{
     document.getElementById("extend").onclick=extendBack;
     return;}
   if(i>=WEEKS){
-    msg(`${dstr(new Date(date+"T00:00:00"))} is past the end of the fund (${dstr(lastDay())}), so it wasn't added. `
-      +`Add more weeks in Settings if the fund runs longer.`);return;}
+    msg(`${dstr(new Date(date+"T00:00:00"))} is past the end of the fund (${dstr(END)}), so it wasn't added. `
+      +`Move the "saving stops" date in Settings if the fund runs longer.`);return;}
   msg("");
   const before=view;
   addEntry({cat:document.getElementById("cat").value,amt:Math.round(amt*100)/100,date});
@@ -628,7 +681,7 @@ function extendBack(){
   if(!pending)return;
   const back=Math.ceil(-wkIndex(pending.date));           /* whole weeks to reach that date */
   const ns=new Date(START); ns.setDate(ns.getDate()-back*7);
-  CFG.start=iso(ns); CFG.weeks=WEEKS+back;                /* end date and boundaries unchanged */
+  CFG.start=iso(ns);                                     /* end date and boundaries unchanged */
   try{localStorage.setItem(LS_CFG,JSON.stringify(CFG));}catch(e){}
   applyCfg(); setDateBounds();
   const e=pending; pending=null;
@@ -640,7 +693,7 @@ function extendBack(){
 }
 function setDateBounds(){
   const d=document.getElementById("date");
-  d.min=iso(START); d.max=iso(lastDay());
+  d.min=iso(START); d.max=iso(END);
 }
 setDateBounds();
 document.getElementById("scopeWk").onclick=()=>{showAll=false;render()};

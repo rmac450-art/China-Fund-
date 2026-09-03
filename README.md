@@ -8,6 +8,19 @@ A weekly spending tracker for a savings goal. It ships with an example budget â€
 Commute spending is tracked separately from discretionary transport, because it protects
 the income that funds the goal.
 
+## Settings
+
+Everything the maths runs on is editable, per device:
+
+| Field | Meaning |
+|---|---|
+| Net income / week | What lands in the account each week |
+| Start date | First day of week 1 |
+| Saving stops | The final day â€” week count follows from it |
+| Already saved | An opening balance; counts toward the goal from day one |
+| Savings goal | Leave blank to derive it from income, caps and dates |
+| Category caps | Add, rename, remove; the weekly cap is the sum |
+
 ## Logging something you forgot
 
 The date field is bounded to the fund's window, so the picker won't offer an impossible

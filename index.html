@@ -252,8 +252,9 @@ footer{font-size:12px;color:var(--ink-3);line-height:1.65}
     </div>
     <div class="strip">
       <div><div class="k">Net income /wk</div><div class="v" id="sInc">—</div></div>
-      <div><div class="k">Spent this week</div><div class="v" id="sWeek">$0.00</div></div>
-      <div><div class="k">Left this week</div><div class="v" id="sLeft">—</div></div>
+      <div><div class="k" id="kSpent">Spent this week</div><div class="v" id="sWeek">$0.00</div></div>
+      <div><div class="k" id="kLeft">Left this week</div><div class="v" id="sLeft">—</div>
+        <div class="note" id="sLeftNote"></div></div>
       <div><div class="k">Projected total</div><div class="v" id="sProj">—</div>
         <div class="note" id="sProjNote"></div></div>
     </div>
@@ -348,7 +349,7 @@ let CFG=loadCfg();
 let CATS,CAP,INC,WEEKS,GOAL,AUTOGOAL,START,END,OPENING;
 const parseD=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);};
 function applyCfg(){
-  CATS=CFG.cats; CAP=CATS.reduce((a,c)=>a+(+c.cap||0),0); INC=+CFG.income||0;
+  CATS=CFG.cats; CAP=+CATS.reduce((a,c)=>a+(+c.cap||0),0).toFixed(2); INC=+CFG.income||0;
   OPENING=Math.max(0,+CFG.opening||0);
   START=parseD(CFG.start); END=parseD(CFG.end);
   /* weeks are 7-day blocks from the start; the last one covers the final day */
@@ -482,9 +483,18 @@ function render(){
     : diff>=0 ? money0(diff)+" ahead of pace" : money0(-diff)+" behind pace";
 
   const ws=weekSpend(view);
+  /* The strip follows whichever week is on screen, so say which one that is
+     rather than claiming "this week" while showing another. */
+  const scope=view===curWeek()?"this week":"week "+(view+1);
+  document.getElementById("kSpent").textContent="Spent "+scope;
+  document.getElementById("kLeft").textContent="Left "+scope;
+  const left=+(CAP-ws).toFixed(2);
   document.getElementById("sWeek").textContent=money(ws);
-  document.getElementById("sLeft").textContent=money(CAP-ws);
-  document.getElementById("sLeft").style.color=CAP-ws<0?"var(--crimson)":"";
+  document.getElementById("sLeft").textContent=money(left);
+  document.getElementById("sLeft").style.color=left<0?"var(--crimson)":"";
+  document.getElementById("sLeftNote").textContent=
+    left<0?`over your ${money(CAP)} spending allowance`
+          :`of your ${money(CAP)} spending allowance`;
   const totalSpent=[...Array(WEEKS).keys()].reduce((a,i)=>a+weekSpend(i),0);
   /* Extrapolating a couple of sparse weeks across the whole term flatters the result
      badly, so trust the observed rate only as it earns it: start from the planned cap

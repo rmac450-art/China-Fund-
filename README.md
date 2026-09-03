@@ -29,6 +29,16 @@ window, where they stop counting.
 Note that an explicitly typed goal is **pinned**: it stays put when you change the dates.
 Clear the field to go back to a goal that follows your income, caps and dates.
 
+## "Left this week"
+
+This is your **spending allowance** minus what you've logged — the $115.04/wk of category
+caps, not the full $509.72 of net income. The other $394.68 is what the fund is made of,
+so it is deliberately not offered as spendable. The figure turns red and goes negative
+once you pass the allowance.
+
+The stats strip follows whichever week you have open, and its labels say so ("Left week 4"
+rather than "Left this week") when you've navigated away from the current one.
+
 ## How the projection works
 
 **Projected total** is what you'd finish with. Future spending is assumed at your weekly

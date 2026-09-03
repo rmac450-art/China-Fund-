@@ -54,6 +54,15 @@ things, not an error.
 
 ## How income is counted
 
+While a week is still running, its income hasn't arrived yet, so deducting spending that
+is still inside the cap would report you as *behind* for staying on budget. During the
+running week only the **overspend** counts against you; spending within the cap is treated
+as already budgeted for.
+
+The moment the week closes this is replaced by the true figure — income minus everything
+actually spent that week — so nothing is written off, it is only deferred to week's end.
+
+
 A week's income lands in the totals when that week **finishes**, not day by day. So
 "Banked so far" only ever counts money you've actually been paid, and can be compared
 directly with your bank balance. The figure steps up once a week rather than creeping
